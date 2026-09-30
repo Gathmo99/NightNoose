@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nightnoose</title>
+<style>
+  :root {
+    --bg: #0b0a0d; --panel: #15121a; --line: #2a2331;
+    --text: #d8d0c4; --dim: #7d7488; --blood: #a3172b; --gold: #b8964f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: radial-gradient(ellipse at top, #1a1420, var(--bg) 60%);
+    color: var(--text); font-family: Georgia, "Times New Roman", serif;
+    display: flex; flex-direction: column; align-items: center; padding: 20px 14px 40px;
+  }
+  h1 { font-weight: normal; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); margin: 6px 0 2px; font-size: 1.6rem; }
+  .sub { color: var(--dim); font-size: .85rem; margin-bottom: 18px; font-style: italic; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; width: 100%; max-width: 760px; }
+  #setup { display: none; margin-bottom: 14px; }
+  #setup.show { display: block; }
+  #setup input { width: 100%; padding: 10px; background: #0e0c12; border: 1px solid var(--line); color: var(--text); border-radius: 4px; font-family: monospace; }
+  #setup p { margin: 0 0 10px; color: var(--dim); font-size: .85rem; line-height: 1.4; }
+  #setup a { color: var(--gold); }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { background: transparent; color: var(--gold); border: 1px solid var(--gold); padding: 9px 18px; border-radius: 4px; letter-spacing: .1em; text-transform: uppercase; font-size: .8rem; }
+  .btn:hover { background: var(--gold); color: var(--bg); }
+  .row { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  #stage { display: grid; grid-template-columns: 1fr 200px; gap: 14px; margin-top: 4px; }
+  @media (max-width: 620px) { #stage { grid-template-columns: 1fr; } }
+  #imgwrap { position: relative; aspect-ratio: 16/9; background: #000; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; }
+  #img { width: 100%; height: 100%; object-fit: cover; transition: filter .6s ease; filter: blur(30px) grayscale(.6); transform: scale(1.15); }
+  #img.clear { transform: scale(1); }
+  #imgwrap .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); font-style: italic; }
+  svg { width: 100%; height: auto; background: #0e0c12; border: 1px solid var(--line); border-radius: 4px; }
+  svg .g { stroke: #5b4f66; stroke-width: 4; fill: none; stroke-linecap: round; }
+  svg .p { stroke: var(--text); stroke-width: 3; fill: none; stroke-linecap: round; display: none; }
+  svg .p.on { display: block; }
+  svg .rope.on { stroke: var(--gold); }
+  #word { display: flex; flex-wrap: wrap; gap: 8px 6px; justify-content: center; margin: 20px 0 6px; min-height: 48px; }
+  .w { display: flex; gap: 6px; }
+  .ch { width: 34px; height: 44px; border-bottom: 2px solid var(--gold); text-align: center; font-size: 1.8rem; line-height: 44px; text-transform: uppercase; }
+  .ch.sym { border-color: transparent; color: var(--dim); width: 18px; }
+  .ch.miss { color: var(--blood); }
+  #status { text-align: center; color: var(--dim); min-height: 1.4em; font-size: .95rem; }
+  #status.win { color: var(--gold); }
+  #status.lose { color: var(--blood); }
+  #keys { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+  .k { width: 40px; height: 42px; background: #0e0c12; color: var(--text); border: 1px solid var(--line); border-radius: 4px; font-size: 1rem; }
+  .k:hover:not(:disabled) { border-color: var(--gold); }
+  .k.ok { border-color: var(--gold); color: var(--gold); }
+  .k.no { border-color: var(--blood); color: var(--blood); opacity: .6; }
+  .k:disabled { cursor: default; }
+  .stats { display: flex; justify-content: space-between; color: var(--dim); font-size: .85rem; margin-bottom: 8px; }
+  .credit { margin-top: 24px; color: var(--dim); font-size: .7rem; text-align: center; max-width: 500px; }
+</style>
+</head>
+<body>
+  <h1>Nightnoose</h1>
+  <div class="sub">Guess the movie before the noose tightens</div>
+
+  <div id="setup" class="card">
+    <p>Enter your <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">TMDB API key</a> (v3 key or v4 read access token). It is stored only locally in your browser.</p>
+    <input id="keyinput" type="password" placeholder="API key / token" autocomplete="off">
+    <div class="row"><button class="btn" id="savekey">Save &amp; start</button></div>
+  </div>
+
+  <div id="game" class="card" style="display:none">
+    <div class="stats"><span id="score">Wins: 0 · Losses: 0</span><span id="lives"></span></div>
+    <div id="stage">
+      <div id="imgwrap"><img id="img" alt=""><div class="ph" id="ph">Loading movie still…</div></div>
+      <svg viewBox="0 0 200 220" aria-label="Gallows">
+        <path class="g" d="M20 205 H130 M50 205 V20 H140 M50 55 L85 20"/>
+        <path class="p rope" d="M140 20 V45"/>
+        <circle class="p" cx="140" cy="60" r="15"/>
+        <path class="p" d="M140 75 V130"/>
+        <path class="p" d="M140 88 L118 112"/>
+        <path class="p" d="M140 88 L162 112"/>
+        <path class="p" d="M140 130 L120 168"/>
+        <path class="p" d="M140 130 L160 168"/>
+      </svg>
+    </div>
+    <div id="word"></div>
+    <div id="status"></div>
+    <div id="keys"></div>
+    <div class="row" style="justify-content:center">
+      <button class="btn" id="next">New movie</button>
+      <button class="btn" id="resetkey" style="opacity:.6">Change API key</button>
+    </div>
+  </div>
+
+  <div class="credit">This product uses the TMDB API but is not endorsed or certified by TMDB.</div>
+
+<script>
+const MAX_WRONG = 7;
+const TOP_PAGES = 25; // picks from the most-voted movies: 25 pages = top ~500 (lower = better known)
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const $ = id => document.getElementById(id);
+let wins = 0, losses = 0;
+let state = null;
+
+function getKey() { try { return localStorage.getItem("tmdb_key") || ""; } catch { return ""; } }
+function setKey(k) { try { localStorage.setItem("tmdb_key", k); } catch {} }
+
+async function tmdb(path, params = {}) {
+  const key = getKey();
+  const url = new URL("https://api.themoviedb.org/3" + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const opts = {};
+  if (key.length > 40) opts.headers = { Authorization: "Bearer " + key };
+  else url.searchParams.set("api_key", key);
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(r.status === 401 ? "Invalid API key." : "TMDB error " + r.status);
+  return r.json();
+}
+
+// Strip accents so e.g. "É" counts as "E"
+function clean(s) {
+  return s.toUpperCase().replace(/ß/g, "SS").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+async function pickMovie() {
+  for (let i = 0; i < 6; i++) {
+    const page = 1 + Math.floor(Math.random() * TOP_PAGES);
+    const data = await tmdb("/discover/movie", { language: "en-US", sort_by: "vote_count.desc", page });
+    const ok = data.results.filter(m => m.backdrop_path && m.title &&
+      m.title.length >= 3 && m.title.length <= 26 && /[A-Za-z]/.test(m.title));
+    if (ok.length) return ok[Math.floor(Math.random() * ok.length)];
+  }
+  throw new Error("No suitable movie found.");
+}
+
+function buildKeys() {
+  const box = $("keys"); box.innerHTML = "";
+  LETTERS.forEach(l => {
+    const b = document.createElement("button");
+    b.className = "k"; b.textContent = l; b.dataset.l = l;
+    b.onclick = () => guess(l);
+    box.appendChild(b);
+  });
+}
+
+function render() {
+  const s = state;
+  const wordEl = $("word"); wordEl.innerHTML = "";
+  s.title.split(" ").forEach(part => {
+    const w = document.createElement("div"); w.className = "w";
+    [...part].forEach(c => {
+      const d = document.createElement("div");
+      const isLetter = LETTERS.includes(clean(c));
+      d.className = "ch" + (isLetter ? "" : " sym");
+      const cc = clean(c);
+      if (!isLetter) d.textContent = c;
+      else if (s.guessed.has(cc) || s.over) {
+        d.textContent = c;
+        if (s.over && !s.guessed.has(cc)) d.classList.add("miss");
+      }
+      w.appendChild(d);
+    });
+    wordEl.appendChild(w);
+  });
+  document.querySelectorAll(".k").forEach(b => {
+    const l = b.dataset.l;
+    b.disabled = s.over || s.guessed.has(l);
+    b.classList.toggle("ok", s.guessed.has(l) && s.letters.has(l));
+    b.classList.toggle("no", s.guessed.has(l) && !s.letters.has(l));
+  });
+  document.querySelectorAll("svg .p").forEach((el, i) => el.classList.toggle("on", i < s.wrong));
+  $("lives").textContent = "Wrong: " + s.wrong + " / " + MAX_WRONG;
+  $("score").textContent = `Wins: ${wins} · Losses: ${losses}`;
+  // Each guess (right or wrong) reduces the blur a bit
+  const blur = s.over ? 0 : Math.max(2, 30 * Math.pow(0.85, s.guessed.size));
+  const img = $("img");
+  img.style.filter = `blur(${blur}px) grayscale(${s.over ? 0 : .6})`;
+  img.classList.toggle("clear", s.over);
+}
+
+function guess(l) {
+  const s = state;
+  if (!s || s.over || s.guessed.has(l)) return;
+  s.guessed.add(l);
+  if (!s.letters.has(l)) s.wrong++;
+  const won = [...s.letters].every(x => s.guessed.has(x));
+  if (won) { s.over = true; wins++; setStatus("Survived. The movie was: " + s.title, "win"); }
+  else if (s.wrong >= MAX_WRONG) { s.over = true; losses++; setStatus("The noose tightens. The answer was: " + s.title, "lose"); }
+  else setStatus("", "");
+  render();
+}
+
+function setStatus(t, cls) { const el = $("status"); el.textContent = t; el.className = cls; }
+
+async function newGame() {
+  setStatus("Summoning a movie…", "");
+  $("ph").style.display = "flex"; $("ph").textContent = "Loading movie still…";
+  $("img").removeAttribute("src");
+  try {
+    const m = await pickMovie();
+    const title = m.title.trim();
+    state = {
+      title, guessed: new Set(), wrong: 0, over: false,
+      letters: new Set([...title].map(clean).join("").split("").filter(c => LETTERS.includes(c)))
+    };
+    const img = $("img");
+    img.onload = () => { $("ph").style.display = "none"; };
+    img.src = "https://image.tmdb.org/t/p/w780" + m.backdrop_path;
+    setStatus("", "");
+    render();
+  } catch (e) {
+    setStatus(e.message, "lose");
+    if (/key/i.test(e.message)) { $("game").style.display = "none"; $("setup").classList.add("show"); }
+  }
+}
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || document.activeElement.tagName === "INPUT") return;
+  const l = e.key.toUpperCase();
+  if (LETTERS.includes(l)) guess(l);
+  else if (e.key === "Enter" && state && state.over) newGame();
+});
+
+function start() {
+  $("setup").classList.remove("show");
+  $("game").style.display = "block";
+  buildKeys(); newGame();
+}
+
+$("savekey").onclick = () => {
+  const k = $("keyinput").value.trim();
+  if (k) { setKey(k); start(); }
+};
+$("next").onclick = newGame;
+$("resetkey").onclick = () => { $("game").style.display = "none"; $("setup").classList.add("show"); };
+
+if (getKey()) start(); else $("setup").classList.add("show");
+</script>
+</body>
+</html>

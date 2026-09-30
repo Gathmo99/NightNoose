@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nachtgalgen TV</title>
+<style>
+  :root {
+    --bg: #0b0a0d; --panel: #15121a; --line: #2a2331;
+    --text: #d8d0c4; --dim: #7d7488; --blood: #a3172b; --gold: #b8964f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: radial-gradient(ellipse at top, #1a1420, var(--bg) 60%);
+    color: var(--text); font-family: Georgia, "Times New Roman", serif;
+    display: flex; flex-direction: column; align-items: center; padding: 20px 14px 40px;
+  }
+  h1 { font-weight: normal; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); margin: 6px 0 2px; font-size: 1.6rem; }
+  .sub { color: var(--dim); font-size: .85rem; margin-bottom: 18px; font-style: italic; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; width: 100%; max-width: 760px; }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { background: transparent; color: var(--gold); border: 1px solid var(--gold); padding: 9px 18px; border-radius: 4px; letter-spacing: .1em; text-transform: uppercase; font-size: .8rem; }
+  .btn:hover { background: var(--gold); color: var(--bg); }
+  .row { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  #stage { display: grid; grid-template-columns: 1fr 200px; gap: 14px; margin-top: 4px; }
+  @media (max-width: 620px) { #stage { grid-template-columns: 1fr; } }
+  #imgwrap { position: relative; aspect-ratio: 16/9; background: #000; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; }
+  #img { width: 100%; height: 100%; object-fit: cover; transition: filter .6s ease; filter: blur(30px) grayscale(.6); transform: scale(1.15); }
+  #img.poster { object-fit: contain; }
+  #img.clear { transform: scale(1); }
+  #imgwrap .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); font-style: italic; }
+  svg { width: 100%; height: auto; background: #0e0c12; border: 1px solid var(--line); border-radius: 4px; }
+  svg .g { stroke: #5b4f66; stroke-width: 4; fill: none; stroke-linecap: round; }
+  svg .p { stroke: var(--text); stroke-width: 3; fill: none; stroke-linecap: round; display: none; }
+  svg .p.on { display: block; }
+  svg .rope.on { stroke: var(--gold); }
+  #word { display: flex; flex-wrap: wrap; gap: 8px 6px; justify-content: center; margin: 20px 0 6px; min-height: 48px; }
+  .w { display: flex; gap: 6px; }
+  .ch { width: 34px; height: 44px; border-bottom: 2px solid var(--gold); text-align: center; font-size: 1.8rem; line-height: 44px; text-transform: uppercase; }
+  .ch.sym { border-color: transparent; color: var(--dim); width: 18px; }
+  .ch.miss { color: var(--blood); }
+  #status { text-align: center; color: var(--dim); min-height: 1.4em; font-size: .95rem; }
+  #status.win { color: var(--gold); }
+  #status.lose { color: var(--blood); }
+  #keys { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+  .k { width: 40px; height: 42px; background: #0e0c12; color: var(--text); border: 1px solid var(--line); border-radius: 4px; font-size: 1rem; }
+  .k:hover:not(:disabled) { border-color: var(--gold); }
+  .k.ok { border-color: var(--gold); color: var(--gold); }
+  .k.no { border-color: var(--blood); color: var(--blood); opacity: .6; }
+  .k:disabled { cursor: default; }
+  .stats { display: flex; justify-content: space-between; color: var(--dim); font-size: .85rem; margin-bottom: 8px; }
+  .credit { margin-top: 24px; color: var(--dim); font-size: .7rem; text-align: center; max-width: 500px; }
+  .credit a { color: var(--gold); }
+</style>
+</head>
+<body>
+  <h1>Nachtgalgen</h1>
+  <div class="sub">Errate die Serie, bevor der Strick zuzieht</div>
+
+  <div id="game" class="card">
+    <div class="stats"><span id="score">Siege: 0 · Niederlagen: 0</span><span id="lives"></span></div>
+    <div id="stage">
+      <div id="imgwrap"><img id="img" alt=""><div class="ph" id="ph">Serienbild wird geladen…</div></div>
+      <svg viewBox="0 0 200 220" aria-label="Galgen">
+        <path class="g" d="M20 205 H130 M50 205 V20 H140 M50 55 L85 20"/>
+        <path class="p rope" d="M140 20 V45"/>
+        <circle class="p" cx="140" cy="60" r="15"/>
+        <path class="p" d="M140 75 V130"/>
+        <path class="p" d="M140 88 L118 112"/>
+        <path class="p" d="M140 88 L162 112"/>
+        <path class="p" d="M140 130 L120 168"/>
+        <path class="p" d="M140 130 L160 168"/>
+      </svg>
+    </div>
+    <div id="word"></div>
+    <div id="status"></div>
+    <div id="keys"></div>
+    <div class="row"><button class="btn" id="next">Neue Serie</button></div>
+  </div>
+
+  <div class="credit">Daten und Bilder von <a href="https://www.tvmaze.com/api" target="_blank" rel="noopener">TVmaze</a> (CC BY-SA).</div>
+
+<script>
+const MAX_WRONG = 7;
+const MIN_WEIGHT = 90; // TVmaze popularity (0-100): higher = better-known shows
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ".split("");
+const API = "https://api.tvmaze.com";
+const $ = id => document.getElementById(id);
+let wins = 0, losses = 0;
+let state = null;
+
+async function api(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error("TVmaze-Fehler " + r.status);
+  return r.json();
+}
+
+// Umlaute erhalten, andere Akzente entfernen
+function clean(s) {
+  return s.toUpperCase()
+    .replace(/Ä/g, "\u0001").replace(/Ö/g, "\u0002").replace(/Ü/g, "\u0003")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0001/g, "Ä").replace(/\u0002/g, "Ö").replace(/\u0003/g, "Ü")
+    .replace(/ß/g, "SS");
+}
+
+async function pickShow() {
+  for (let i = 0; i < 15; i++) {
+    const page = Math.floor(Math.random() * 40); // lower pages = older, better-known shows
+    const list = await api("/shows?page=" + page);
+    const ok = list.filter(s => s.image && s.image.original && s.name &&
+      s.name.length >= 3 && s.name.length <= 26 &&
+      /[A-Za-zÄÖÜäöü]/.test(s.name) && s.rating && s.rating.average >= 7 && s.weight >= MIN_WEIGHT &&
+      (s.language === "English" || s.language === "German"));
+    if (ok.length) return ok[Math.floor(Math.random() * ok.length)];
+  }
+  throw new Error("Keine passende Serie gefunden.");
+}
+
+// Prefer a wide "background" image, fall back to the poster
+async function pickImage(show) {
+  try {
+    const imgs = await api("/shows/" + show.id + "/images");
+    const bg = imgs.filter(i => i.type === "background" && i.resolutions && i.resolutions.original);
+    if (bg.length) return { url: bg[Math.floor(Math.random() * bg.length)].resolutions.original.url, poster: false };
+  } catch (e) {}
+  return { url: show.image.original, poster: true };
+}
+
+function buildKeys() {
+  const box = $("keys"); box.innerHTML = "";
+  LETTERS.forEach(l => {
+    const b = document.createElement("button");
+    b.className = "k"; b.textContent = l; b.dataset.l = l;
+    b.onclick = () => guess(l);
+    box.appendChild(b);
+  });
+}
+
+function render() {
+  const s = state;
+  const wordEl = $("word"); wordEl.innerHTML = "";
+  s.title.split(" ").forEach(part => {
+    const w = document.createElement("div"); w.className = "w";
+    [...part].forEach(c => {
+      const d = document.createElement("div");
+      const cc = clean(c);
+      const isLetter = LETTERS.includes(cc);
+      d.className = "ch" + (isLetter ? "" : " sym");
+      if (!isLetter) d.textContent = c;
+      else if (s.guessed.has(cc) || s.over) {
+        d.textContent = c;
+        if (s.over && !s.guessed.has(cc)) d.classList.add("miss");
+      }
+      w.appendChild(d);
+    });
+    wordEl.appendChild(w);
+  });
+  document.querySelectorAll(".k").forEach(b => {
+    const l = b.dataset.l;
+    b.disabled = s.over || s.guessed.has(l);
+    b.classList.toggle("ok", s.guessed.has(l) && s.letters.has(l));
+    b.classList.toggle("no", s.guessed.has(l) && !s.letters.has(l));
+  });
+  document.querySelectorAll("svg .p").forEach((el, i) => el.classList.toggle("on", i < s.wrong));
+  $("lives").textContent = "Fehler: " + s.wrong + " / " + MAX_WRONG;
+  $("score").textContent = `Siege: ${wins} · Niederlagen: ${losses}`;
+  // Mit jedem Tipp (richtig oder falsch) etwas weniger Unschärfe
+  const blur = s.over ? 0 : Math.max(2, 30 * Math.pow(0.85, s.guessed.size));
+  const img = $("img");
+  img.style.filter = `blur(${blur}px) grayscale(${s.over ? 0 : .6})`;
+  img.classList.toggle("clear", s.over);
+}
+
+function guess(l) {
+  const s = state;
+  if (!s || s.over || s.guessed.has(l)) return;
+  s.guessed.add(l);
+  if (!s.letters.has(l)) s.wrong++;
+  const won = [...s.letters].every(x => s.guessed.has(x));
+  if (won) { s.over = true; wins++; setStatus("Überlebt. Die Serie war: " + s.title, "win"); }
+  else if (s.wrong >= MAX_WRONG) { s.over = true; losses++; setStatus("Der Strick zieht zu. Gesucht war: " + s.title, "lose"); }
+  else setStatus("", "");
+  render();
+}
+
+function setStatus(t, cls) { const el = $("status"); el.textContent = t; el.className = cls; }
+
+async function newGame() {
+  setStatus("Beschwöre Serie…", "");
+  $("ph").style.display = "flex"; $("ph").textContent = "Serienbild wird geladen…";
+  $("img").removeAttribute("src");
+  try {
+    const show = await pickShow();
+    const title = show.name.trim();
+    const image = await pickImage(show);
+    state = {
+      title, guessed: new Set(), wrong: 0, over: false,
+      letters: new Set([...title].map(clean).join("").split("").filter(c => LETTERS.includes(c)))
+    };
+    const img = $("img");
+    img.classList.toggle("poster", image.poster);
+    img.onload = () => { $("ph").style.display = "none"; };
+    img.src = image.url;
+    setStatus("", "");
+    render();
+  } catch (e) {
+    setStatus(e.message + " Klicke auf „Neue Serie“, um es erneut zu versuchen.", "lose");
+  }
+}
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const l = e.key.toUpperCase();
+  if (l.length === 1 && LETTERS.includes(l)) guess(l);
+  else if (e.key === "Enter" && state && state.over) newGame();
+});
+
+$("next").onclick = newGame;
+buildKeys();
+newGame();
+</script>
+</body>
+</html>
