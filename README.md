@@ -7,6 +7,7 @@ A dark, gothic-themed Hangman game that runs in the browser as a single HTML fil
 | File | Content | API | Key needed |
 |---|---|---|---|
 | `movies.html` | Movies (English) | [TMDB](https://www.themoviedb.org/) | Yes (v3 key or v4 token, entered on first launch, stored in local storage only) |
+| `movies-de.html` | Movies (German UI and titles) | [TMDB](https://www.themoviedb.org/) | Yes (same key as `movies.html`, shared via local storage) |
 | `tv.html` | TV shows (English) | [TVmaze](https://www.tvmaze.com/api) | No |
 | `tv-de.html` | TV shows (German UI) | [TVmaze](https://www.tvmaze.com/api) | No |
 
