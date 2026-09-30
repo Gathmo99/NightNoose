@@ -75,8 +75,7 @@
         <path class="p rope" d="M140 20 V45"/>
         <circle class="p" cx="140" cy="60" r="15"/>
         <path class="p" d="M140 75 V130"/>
-        <path class="p" d="M140 88 L118 112"/>
-        <path class="p" d="M140 88 L162 112"/>
+        <path class="p" d="M118 112 L140 88 L162 112"/>
         <path class="p" d="M140 130 L120 168"/>
         <path class="p" d="M140 130 L160 168"/>
       </svg>
@@ -93,8 +92,8 @@
   <div class="credit">Dieses Produkt nutzt die TMDB-API, wird aber von TMDB weder unterstützt noch zertifiziert.</div>
 
 <script>
-const MAX_WRONG = 7;
-const TOP_PAGES = 25; // picks from the most-voted movies: 25 pages = top ~500 (lower = better known)
+const MAX_WRONG = 6;
+const TOP_PAGES = 100; // picks from the most-voted movies: 100 pages = top ~2000 (lower = better known)
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ".split("");
 const $ = id => document.getElementById(id);
 let wins = 0, losses = 0;
@@ -129,10 +128,20 @@ async function pickMovie() {
     const page = 1 + Math.floor(Math.random() * TOP_PAGES);
     const data = await tmdb("/discover/movie", { language: "de-DE", sort_by: "vote_count.desc", page });
     const ok = data.results.filter(m => m.backdrop_path && m.title &&
-      m.title.length >= 3 && m.title.length <= 26 && /[A-Za-zÄÖÜäöü]/.test(m.title));
+      m.title.length >= 3 && m.title.length <= 35 && /[A-Za-zÄÖÜäöü]/.test(m.title));
     if (ok.length) return ok[Math.floor(Math.random() * ok.length)];
   }
   throw new Error("Kein passender Film gefunden.");
+}
+
+// Prefer a random textless backdrop so the image does not give the title away
+async function pickImage(m) {
+  try {
+    const d = await tmdb("/movie/" + m.id + "/images", { include_image_language: "null" });
+    const plain = d.backdrops.filter(b => !b.iso_639_1);
+    if (plain.length) return plain[Math.floor(Math.random() * plain.length)].file_path;
+  } catch {}
+  return m.backdrop_path;
 }
 
 function buildKeys() {
@@ -174,7 +183,7 @@ function render() {
   $("lives").textContent = "Fehler: " + s.wrong + " / " + MAX_WRONG;
   $("score").textContent = `Siege: ${wins} · Niederlagen: ${losses}`;
   // Mit jedem Tipp (richtig oder falsch) etwas weniger Unschärfe
-  const blur = s.over ? 0 : Math.max(2, 30 * Math.pow(0.85, s.guessed.size));
+  const blur = s.over ? 0 : Math.max(4, 40 * Math.pow(0.92, s.guessed.size));
   const img = $("img");
   img.style.filter = `blur(${blur}px) grayscale(${s.over ? 0 : .6})`;
   img.classList.toggle("clear", s.over);
@@ -207,7 +216,7 @@ async function newGame() {
     };
     const img = $("img");
     img.onload = () => { $("ph").style.display = "none"; };
-    img.src = "https://image.tmdb.org/t/p/w780" + m.backdrop_path;
+    img.src = "https://image.tmdb.org/t/p/w780" + await pickImage(m);
     setStatus("", "");
     render();
   } catch (e) {
